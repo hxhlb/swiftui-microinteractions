@@ -100,6 +100,7 @@ Never use bare `.spring()` — always explicit `response` + `dampingFraction`. I
 Stream these progress lines one by one:
 
 ```
+⚙️  swiftui-microinteractions v1.0.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
