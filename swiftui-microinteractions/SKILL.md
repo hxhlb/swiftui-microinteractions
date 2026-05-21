@@ -17,6 +17,28 @@ Generate a complete, compilable SwiftUI animation file in the legendary-Animo st
 
 ---
 
+## Asset Scanning (run before generating any image-dependent animation)
+
+If the animation involves images, photos, or cards, scan for existing assets first:
+
+1. Check these paths in order:
+   - `legendary-Animo/Res/Assets.xcassets/Images/` — project asset catalog
+   - `Assets.xcassets/Images/` — standard Xcode layout
+   - `Assets.xcassets/` — flat layout
+
+2. List `.imageset` folder names found — strip the `.imageset` suffix to get the asset name used in `Image("name")`
+
+3. **If assets found** → use them directly. Print:
+   ```
+   🖼️  Assets found: photo1, photo2, photo3 … (using in carousel)
+   ```
+
+4. **If no assets found** → use `Image(systemName: "photo.fill")` inside a colored `RoundedRectangle` as placeholder. Output Asset Notes at the end listing exactly what to add.
+
+Never invent asset names. Only reference names confirmed to exist on disk.
+
+---
+
 ## Style Rules
 
 **Backgrounds:** `Color(white: 0.06).ignoresSafeArea()` standalone · `Color("BgColor").ignoresSafeArea()` in-project
@@ -89,9 +111,10 @@ private struct HapticFeedback {
 
 ## Output (Create mode)
 
-Stream these progress lines one by one as you work through each step — user sees them immediately:
+Stream these progress lines one by one — user sees them immediately:
 
 ```
+🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
 🎮  Haptics: <2–3 haptic moments>
@@ -100,7 +123,8 @@ Stream these progress lines one by one as you work through each step — user se
 ```
 
 After the last progress line, **write the file to disk** using the Write tool:
-- If `legendary-Animo/Animations/` exists relative to cwd → write to `legendary-Animo/Animations/<FileName>.swift`
+- If carousel animation and `legendary-Animo/Carousels/` exists → write there
+- Else if `legendary-Animo/Animations/` exists → write there
 - Else if `Animations/` folder exists → write there
 - Else write `<FileName>.swift` in the current directory
 
@@ -114,12 +138,18 @@ Then output the **ContentView registration** snippet (```swift block) for the us
 DemoItem(
     row: RowView(icon: "💧", title: "Title Here", desc: "Feature · feature · feature"),
     destination: wrappedDestination { YourView() },
-    date: "May 20, 2026",
+    date: "May 21, 2026",
     hasDateHeader: true
 )
 ```
 
-Then **Asset notes** only if project assets are required.
+Then **Asset notes** — always include if placeholders were used:
+```
+ASSET NOTES:
+- Add portrait images to Assets.xcassets/Images/ named: photo1, photo2, photo3…
+  → Recommended size: 400×600pt, portrait ratio
+- Remove placeholder RoundedRectangle once real assets are added
+```
 
 ---
 
