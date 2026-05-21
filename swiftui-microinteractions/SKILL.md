@@ -1,6 +1,7 @@
 ---
 name: swiftui-microinteractions
 description: Generate premium SwiftUI animations in the legendary-Animo style — spring physics, CoreHaptics, glass morphism, complete compilable files.
+version: "1.0.0"
 ---
 
 Generate a complete, compilable SwiftUI animation file in the legendary-Animo style. No placeholders. No TODO comments.
