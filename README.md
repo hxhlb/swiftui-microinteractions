@@ -1,8 +1,8 @@
-# Skills by Vishal Paliwal
+# swiftui-microinteractions
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![skills.sh](https://skills.sh/b/iAmVishal16/skills)](https://skills.sh/iAmVishal16/skills/swiftui-microinteractions)
-[![GitHub Stars](https://img.shields.io/github/stars/iAmVishal16/skills?style=flat)](https://github.com/iAmVishal16/skills/stargazers)
+[![skills.sh](https://skills.sh/b/iAmVishal16/swiftui-microinteractions)](https://skills.sh/iAmVishal16/swiftui-microinteractions/swiftui-microinteractions)
+[![GitHub Stars](https://img.shields.io/github/stars/iAmVishal16/swiftui-microinteractions?style=flat)](https://github.com/iAmVishal16/swiftui-microinteractions/stargazers)
 
 Premium SwiftUI animation and interaction skills for AI coding agents — generate production-ready micro-interactions from plain English prompts.
 
@@ -38,7 +38,7 @@ Each prompt writes a complete `.swift` file directly to your project. Supports b
 ### Option A: skills.sh CLI
 
 ```bash
-npx skills add iAmVishal16/skills
+npx skills add iAmVishal16/swiftui-microinteractions
 ```
 
 Then use in your agent:
@@ -46,7 +46,7 @@ Then use in your agent:
 /swiftui-microinteractions iOS toggle but the track floods with liquid when switched
 ```
 
-[View on skills.sh →](https://skills.sh/iAmVishal16/skills/swiftui-microinteractions)
+[View on skills.sh →](https://skills.sh/iAmVishal16/swiftui-microinteractions/swiftui-microinteractions)
 
 ### Option B: Claude Code Plugin
 
@@ -61,7 +61,7 @@ Then use in your agent:
     "iamvishal16-skills": {
       "source": {
         "source": "github",
-        "repo": "iAmVishal16/skills"
+        "repo": "iAmVishal16/swiftui-microinteractions"
       }
     }
   }
@@ -70,7 +70,7 @@ Then use in your agent:
 
 **Or via Claude Code CLI:**
 ```
-/plugin marketplace add iAmVishal16/skills
+/plugin marketplace add iAmVishal16/swiftui-microinteractions
 /plugin install swiftui-microinteractions@iamvishal16-skills
 ```
 
@@ -78,7 +78,7 @@ Then use in your agent:
 
 ```bash
 curl -o ~/.claude/commands/swiftui-microinteractions.md \
-  https://raw.githubusercontent.com/iAmVishal16/skills/main/swiftui-microinteractions/SKILL.md
+  https://raw.githubusercontent.com/iAmVishal16/swiftui-microinteractions/main/swiftui-microinteractions/SKILL.md
 ```
 
 Skill is then available as `/swiftui-microinteractions` in any Claude Code session.
