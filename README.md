@@ -1,8 +1,9 @@
 # swiftui-microinteractions
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![skills.sh](https://skills.sh/b/iAmVishal16/swiftui-microinteractions)](https://skills.sh/iAmVishal16/swiftui-microinteractions/swiftui-microinteractions)
-[![GitHub Stars](https://img.shields.io/github/stars/iAmVishal16/swiftui-microinteractions?style=flat)](https://github.com/iAmVishal16/swiftui-microinteractions/stargazers)
+[![skills.sh](https://img.shields.io/badge/skills.sh-swiftui--microinteractions-blue)](https://skills.sh/iAmVishal16/swiftui-microinteractions/swiftui-microinteractions)
+[![Skill Stars](https://img.shields.io/github/stars/iAmVishal16/swiftui-microinteractions?style=flat&label=skill+stars)](https://github.com/iAmVishal16/swiftui-microinteractions/stargazers)
+[![legendary-Animo](https://img.shields.io/github/stars/iAmVishal16/legendary-Animo?style=flat&label=legendary-Animo+⭐)](https://github.com/iAmVishal16/legendary-Animo/stargazers)
 
 Premium SwiftUI animation and interaction skills for AI coding agents — generate production-ready micro-interactions from plain English prompts.
 
