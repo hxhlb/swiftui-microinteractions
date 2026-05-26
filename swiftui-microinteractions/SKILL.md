@@ -1,7 +1,7 @@
 ---
 name: swiftui-microinteractions
 description: Generate premium SwiftUI animations in the legendary-Animo style — spring physics, CoreHaptics, glass morphism, complete compilable files.
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 Generate a complete, compilable SwiftUI animation file in the legendary-Animo style. No placeholders. No TODO comments.
@@ -52,13 +52,39 @@ Before including haptic code, check if `HapticFeedback.swift` exists anywhere in
 
 **Backgrounds:** `Color(white: 0.06).ignoresSafeArea()` standalone · `Color("BgColor").ignoresSafeArea()` in-project
 
-**Glass surfaces:** `.ultraThinMaterial` or `.thickMaterial` clipped to `Capsule()` · track background `.white.opacity(0.06)` + 1pt stroke `.white.opacity(0.08)`
+**Glass surfaces (pre-iOS 26):** `.ultraThinMaterial` or `.thickMaterial` clipped to shape · track background `.white.opacity(0.06)` + 1pt stroke `.white.opacity(0.08)`
 
 **Opacity levels:** ghost `0.06–0.08` · subtle `0.12` · inactive `0.3` · secondary `0.5` · active `0.8–0.9` · full `1.0`
 
 **Colors:** white + opacity dominant · cyan `Color(red: 0.45, green: 0.65, blue: 1.0)` · green `Color(red: 0.55, green: 0.95, blue: 0.75)` · never `.blue/.green/.red` on dark bg
 
 **Gradients:** two-tone only · blob fill `[.white, Color(white: 0.88)]` · progress `[cyan, green]`
+
+---
+
+## iOS 26 Liquid Glass
+
+Use `.glassEffect()` on iOS 26+, fall back to `.ultraThinMaterial` on older OS. Always wrap in a `@ViewBuilder` helper so both paths share the same call site:
+
+```swift
+@ViewBuilder
+private func glassShape(radius: CGFloat) -> some View {
+    if #available(iOS 26.0, *) {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(.clear)
+            .glassEffect(in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+    } else {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            )
+    }
+}
+```
+
+Apply to any shape — pill, capsule, circle. Never hardcode `.ultraThinMaterial` for new components when iOS 26 is a target.
 
 ---
 
@@ -85,6 +111,15 @@ Never use bare `.spring()` — always explicit `response` + `dampingFraction`. I
 - Liquid metaball: `Canvas` (black fill → white circles) + `.blur(20)` + `.contrast(50)` + `.blendMode(.screen)`
 - Multi-phase sequences: stacked `DispatchQueue.main.asyncAfter` with overlapping delays
 
+**ZStack frame trap — always apply both rules together:**
+When a ZStack has a fixed `.frame(height:)` AND contains a `LazyVGrid`, `List`, or any tall component:
+1. Conditionally render the tall child only when needed (`if isExpanded || childVisible`)
+2. Add `.clipped()` to the ZStack
+
+Relying on `.opacity(0)` alone does NOT prevent overflow — the component still renders outside the frame and changing `height` constants has no visual effect.
+
+**Floating bar layout:** Build multi-component bars (pill + separate action button) as `HStack` of independent views, not one monolithic ZStack. Each component gets its own glass background and shadow.
+
 **File layout (mandatory MARK order):**
 ```
 // MARK: - Model
@@ -95,12 +130,44 @@ Never use bare `.spring()` — always explicit `response` + `dampingFraction`. I
 
 ---
 
+## Tab Bar Patterns
+
+**Sliding selection indicator** — use `GeometryReader` + `offset(x:)`, never manual position math:
+
+```swift
+GeometryReader { geo in
+    let tabW = geo.size.width / CGFloat(tabCount)
+    RoundedRectangle(cornerRadius: indicatorRadius, style: .continuous)
+        .fill(Color.white.opacity(0.14))
+        .padding(5)
+        .frame(width: tabW)
+        .offset(x: tabW * CGFloat(selectedIndex))
+        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: selectedIndex)
+}
+```
+
+**Active indicator spec** (matches Apple Music / iOS 26 HIG):
+- Fill: `Color.white.opacity(0.14)` — solid presence, clearly distinct from glass background
+- Padding: `5pt` inset on all sides (fills full tab height minus 5pt each edge)
+- Corner radius: `outerRadius - 5` (softer than the outer pill, independent value ~16–18pt)
+- Width: exactly `pillWidth / tabCount` — crisp slot division, no guessing
+
+**Tab cell layout** (icon + label, per HIG):
+- Icon: 22pt, `.semibold` when active · `.regular` inactive
+- Label: 10–11pt, `.semibold` when active · `.regular` inactive
+- Both tinted with `activeColor` when selected · `white.opacity(0.5)` inactive
+- `VStack(spacing: 4)` inside `.frame(maxWidth: .infinity).frame(height: barHeight)`
+
+**Standard heights:** `barHeight = 49pt` (icon-only) · `barHeight = 68pt` (icon + label)
+
+---
+
 ## Output (Create mode)
 
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.0.0
+⚙️  swiftui-microinteractions v1.1.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
@@ -170,11 +237,13 @@ Run the script with the actual values. Use an existing same-group file as the an
 
 **Step 3 — ContentView registration snippet** (```swift block, paste manually):
 
+Use today's actual date for the `date:` field — never hardcode a past date.
+
 ```swift
 DemoItem(
     row: RowView(icon: "💧", title: "Title Here", desc: "Feature · feature · feature"),
     destination: wrappedDestination { YourView() },
-    date: "May 21, 2026",
+    date: "<today's date e.g. May 26, 2026>",
     hasDateHeader: true
 )
 ```

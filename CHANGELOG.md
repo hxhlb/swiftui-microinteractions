@@ -6,6 +6,20 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.1.0] — 2026-05-26
+
+Improvements from real-world LiquidGlassTabBar development.
+
+- **iOS 26 Liquid Glass**: `glassShape(radius:)` `@ViewBuilder` helper — `.glassEffect(in:)` on iOS 26+, `.ultraThinMaterial` fallback on older OS
+- **ZStack overflow trap**: documented rule — conditionally render tall children + add `.clipped()`; `.opacity(0)` alone does NOT prevent frame overflow
+- **Sliding tab indicator**: `GeometryReader` + `offset(x: tabW * selectedIndex)` pattern with exact fill/padding/radius spec matching iOS 26 HIG
+- **Active indicator fidelity**: `Color.white.opacity(0.14)` solid fill, 5pt inset, corner radius = outerRadius − 5 — matches Apple Music / iOS 26 reference
+- **Multi-component bar layout**: `HStack` of independent pill + circle components, not one monolithic ZStack
+- **ContentView date**: use today's actual date in snippet, not hardcoded past date
+- **Version line**: bumped to `⚙️ swiftui-microinteractions v1.1.0`
+
+---
+
 ## [1.0.0] — 2026-05-21
 
 Initial public release.
