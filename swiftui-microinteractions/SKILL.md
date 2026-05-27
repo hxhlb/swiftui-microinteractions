@@ -157,6 +157,19 @@ GeometryReader { geo in
 - Both tinted with `activeColor` when selected · `white.opacity(0.5)` inactive
 - `VStack(spacing: 4)` inside `.frame(maxWidth: .infinity).frame(height: barHeight)`
 
+**SF Symbol replace transition** — for any button that toggles state and changes its icon (e.g. more → close, play → pause, add → done):
+
+```swift
+Image(systemName: isExpanded ? "xmark" : "ellipsis")
+    .contentTransition(.symbolEffect(.replace.downUp))
+    .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isExpanded)
+```
+
+- `.replace.downUp` — old icon scales down, new scales up. Use for open/close toggles.
+- `.replace.upUp` — both scale up. Use for sequential forward actions.
+- The button action must toggle: `isExpanded ? collapse() : expand()` — never hide the button to show a separate close button.
+- Available iOS 17+. No fallback needed for legendary-Animo (iOS 16+ minimum → gate with `if #available(iOS 17, *)` only if targeting iOS 16).
+
 **Standard heights:** `barHeight = 49pt` (icon-only) · `barHeight = 68pt` (icon + label)
 
 ---
@@ -166,7 +179,7 @@ GeometryReader { geo in
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.1.0
+⚙️  swiftui-microinteractions v1.2.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>

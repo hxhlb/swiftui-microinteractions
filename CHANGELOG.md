@@ -6,6 +6,13 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.2.0] — 2026-05-27
+
+- **SF Symbol replace transition**: `.contentTransition(.symbolEffect(.replace.downUp))` pattern for toggle buttons (more ↔ close, play ↔ pause). Button stays visible — icon morphs in place. Never hide/show a separate close button.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.2.0`
+
+---
+
 ## [1.1.0] — 2026-05-26
 
 Improvements from real-world LiquidGlassTabBar development.
