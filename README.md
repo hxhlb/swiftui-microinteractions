@@ -1,7 +1,7 @@
 # swiftui-microinteractions
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![skills.sh installs](https://skills.sh/b/iAmVishal16/skills)](https://www.skills.sh/iamvishal16/skills/swiftui-microinteractions)
+[![skills.sh installs](https://skills.sh/b/iAmVishal16/swiftui-microinteractions)](https://www.skills.sh/iamvishal16/swiftui-microinteractions)
 [![Skill Stars](https://img.shields.io/github/stars/iAmVishal16/swiftui-microinteractions?style=flat&label=skill+stars)](https://github.com/iAmVishal16/swiftui-microinteractions/stargazers)
 [![legendary-Animo](https://img.shields.io/github/stars/iAmVishal16/legendary-Animo?style=flat&label=legendary-Animo+⭐)](https://github.com/iAmVishal16/legendary-Animo/stargazers)
 
@@ -47,7 +47,7 @@ Then use in your agent:
 /swiftui-microinteractions iOS toggle but the track floods with liquid when switched
 ```
 
-[View on skills.sh →](https://www.skills.sh/iamvishal16/skills/swiftui-microinteractions)
+[View on skills.sh →](https://www.skills.sh/iamvishal16/swiftui-microinteractions)
 
 ### Option B: Claude Code Plugin
 
@@ -79,7 +79,7 @@ Then use in your agent:
 
 ```bash
 curl -o ~/.claude/commands/swiftui-microinteractions.md \
-  https://raw.githubusercontent.com/iAmVishal16/swiftui-microinteractions/main/swiftui-microinteractions/SKILL.md
+  https://raw.githubusercontent.com/iAmVishal16/swiftui-microinteractions/main/SKILL.md
 ```
 
 Skill is then available as `/swiftui-microinteractions` in any Claude Code session.
@@ -104,9 +104,14 @@ The skill encodes the full legendary-Animo aesthetic without requiring knowledge
 ## Skill Structure
 
 ```
-swiftui-microinteractions/
+swiftui-microinteractions/   ← repo root
   SKILL.md
+  README.md
+  CHANGELOG.md
+  LICENSE
 ```
+
+Single-skill repo: `SKILL.md` lives at the repo root, indexed by skills.sh as `iamvishal16/swiftui-microinteractions`.
 
 ---
 
