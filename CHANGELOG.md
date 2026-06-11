@@ -6,6 +6,17 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.5.0] — 2026-06-11
+
+Learnings from building SignatureSheetView — a `.drawOn` signature inside an Apple default bottom sheet. Root-caused why the first build's draw animation looked "broken."
+
+- **`.drawOn` only plays on a *transition*, never on appear**: `isActive:` traces the path when the bound value *changes* while the view is visible — it does NOT replay when the view appears already in the visible state. A correct, present `.drawOn` modifier can still look broken if nothing ever fires the transition.
+- **"draw a demo" / "animate X" → auto-play by default**: when the prompt asks the symbol to draw/animate itself (showcase, hint, loading), drive it with the `.task` loop. Only gate behind a tap/state change when the prompt explicitly names a user action ("tap to sign", "on submit"). Reaching for an interaction trigger when the user wanted a self-playing demo is the #1 way a drawOn build appears non-functional.
+- **Verification trap — never validate a transition by pre-setting state to its destination**: initializing `@State` to the end value (e.g. `isHidden = false`) renders the symbol *already fully drawn, with no transition*, so a screenshot falsely confirms "it works." That validates layout, not motion. Verify by launching with the auto-loop (or scripting the tap) and capturing a **mid-trace frame**. Applies to every `isActive:`/`value:` symbolEffect.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.5.0`
+
+---
+
 ## [1.4.0] — 2026-06-11
 
 Learnings from debugging SF Symbols 7 `.drawOn` for a Medium article demo.

@@ -211,6 +211,13 @@ Image(systemName: "checkmark")
 
 Do NOT stack `.drawOn` and `.drawOff` on the same image. They conflict and keep the symbol invisible.
 
+**`.drawOn` only plays on a *transition* — never on appear.** `isActive:` traces the path when the bound value *changes* while the view is visible. It does NOT replay when the view appears already in the visible state. Two consequences:
+
+- **"Draw a … demo" / "animate …" → auto-play by default.** When the prompt asks the symbol to draw/animate itself (a showcase, a hint, a loading state), drive it with the `.task` loop above so it traces on its own. Only gate it behind a tap/state change when the prompt explicitly describes a user action ("tap to sign", "on submit"). Reaching for the interaction trigger when the user wanted a self-playing demo is the most common way a drawOn build looks "broken" — the API is present and correct, but nothing ever fires it.
+- **If a tap drives it, the pad/area is empty until the first tap.** That's correct behavior, not a bug — but confirm it's what the prompt wanted.
+
+**Verification trap — never validate a transition by pre-setting state to its destination.** Setting `@State private var isDrawSymbolHidden = false` at init renders the symbol *already fully drawn, with no transition* — so a screenshot shows a complete symbol and falsely confirms "it works." That validates layout, not motion. To actually verify the trace: launch with the auto-loop running (or script the tap), and capture a **mid-trace frame** (a partial stroke). A fully-drawn symbol in a screenshot proves nothing about whether the draw animated. This applies to every `isActive:`/`value:` symbolEffect, not just drawOn.
+
 ---
 
 ### Other Symbol Effects (iOS 17+)
@@ -336,7 +343,7 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.4.0
+⚙️  swiftui-microinteractions v1.5.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
