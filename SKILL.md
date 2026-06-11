@@ -1,6 +1,6 @@
 ---
 name: swiftui-microinteractions
-description: Generate premium SwiftUI animations in the legendary-Animo style — spring physics, CoreHaptics, glass morphism, complete compilable files.
+description: Generate premium SwiftUI animations in the legendary-Animo style — spring physics, CoreHaptics, glass morphism, SF Symbols 7 draw animations, complete compilable files.
 ---
 
 Generate a complete, compilable SwiftUI animation file in the legendary-Animo style. No placeholders. No TODO comments.
@@ -9,6 +9,7 @@ Generate a complete, compilable SwiftUI animation file in the legendary-Animo st
 - Building a SwiftUI button, gesture, slider, or liquid effect with premium physics
 - Need haptic feedback timed correctly to animation phases
 - Creating a drag interaction with resistance, snap, or threshold trigger
+- Animating SF Symbols with draw-on, breathe, bounce, replace, or variable color effects (iOS 17–26)
 - Editing an existing SwiftUI animation file
 
 ## Mode Detection
@@ -176,6 +177,73 @@ LinearGradient(colors: [Color(white: 0.97), Color(white: 0.88)],
 
 ---
 
+## SF Symbols Animation (iOS 17–26)
+
+### `.drawOn` — iOS 26 only (SF Symbols 7)
+
+**`isActive` is inverted.** This is the single most common mistake:
+
+| isActive | Visual state | What plays |
+|---|---|---|
+| `true` | Hidden (pre-draw) | Nothing on initial render |
+| `false` | Visible | drawOn traces stroke on |
+| `false → true` | Hidden | Reverse (draw-off) plays automatically |
+
+**Correct pattern — always name the state variable to reflect "hidden":**
+
+```swift
+@State private var isDrawSymbolHidden = true   // starts hidden
+
+Image(systemName: "checkmark")
+    .symbolEffect(.drawOn, options: .speed(0.5), isActive: isDrawSymbolHidden)
+    .task {
+        try? await Task.sleep(for: .seconds(0.5))
+        while !Task.isCancelled {
+            isDrawSymbolHidden.toggle()    // false → draws on; true → draws off
+            try? await Task.sleep(for: .seconds(2.0))
+        }
+    }
+```
+
+**Symbol choice matters for `.drawOn`:**
+- `heart.fill`, `star.fill` — flood-fill shapes, no stroke path. drawOn appears to jump from hidden to filled instantly. Not suitable for demonstrating the pen-trace effect.
+- `checkmark`, `heart` (outline), `signature`, `wifi`, `star` (outline) — stroke-based, clearly show the trace.
+
+Do NOT stack `.drawOn` and `.drawOff` on the same image. They conflict and keep the symbol invisible.
+
+---
+
+### Other Symbol Effects (iOS 17+)
+
+```swift
+// Discrete — fires once per value change (user actions, additions)
+.symbolEffect(.bounce, value: count)
+.symbolEffect(.wiggle, value: errorTrigger)
+
+// Indefinite — runs while active (states: recording, loading, scanning)
+.symbolEffect(.breathe, isActive: isRecording)
+.symbolEffect(.variableColor.iterative.reversing, isActive: isLoading)
+.symbolEffect(.rotate, isActive: isSyncing)
+
+// Content transition — swapping symbols on state toggle (always needs withAnimation)
+Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+    .contentTransition(.symbolEffect(.replace))
+// trigger with: withAnimation(.smooth) { isPlaying.toggle() }
+```
+
+**Loop driver — use `.task`, not `Timer`:**
+```swift
+.task {
+    while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(interval))
+        count += 1   // or toggle state
+    }
+}
+```
+`.task` cancels automatically when the view disappears. Timer leaks.
+
+---
+
 ## Spring Presets
 
 | Feel | Value |
@@ -268,7 +336,7 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.3.0
+⚙️  swiftui-microinteractions v1.4.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
@@ -344,7 +412,7 @@ Use today's actual date for the `date:` field — never hardcode a past date.
 DemoItem(
     row: RowView(icon: "💧", title: "Title Here", desc: "Feature · feature · feature"),
     destination: wrappedDestination { YourView() },
-    date: "<today's date e.g. May 26, 2026>",
+    date: "<today's date e.g. June 11, 2026>",
     hasDateHeader: true
 )
 ```

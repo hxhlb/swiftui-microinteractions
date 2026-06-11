@@ -6,6 +6,19 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.4.0] — 2026-06-11
+
+Learnings from debugging SF Symbols 7 `.drawOn` for a Medium article demo.
+
+- **`.drawOn` isActive semantics are inverted**: `isActive: true` = hidden (pre-draw state), `isActive: false` = visible (animation plays on that transition). Toggling back to `true` plays draw-off automatically. This is the single most common `.drawOn` bug.
+- **Symbol choice for `.drawOn`**: flood-fill symbols (`heart.fill`, `star.fill`) have no stroke path — drawOn jumps from hidden to fully filled with no visible trace. Use stroke-based symbols (`checkmark`, `heart` outline, `signature`, `wifi`) where the pen trace is clearly visible.
+- **Never stack `.drawOn` + `.drawOff` on the same image**: both modifiers conflict and keep the symbol invisible.
+- **Other SF Symbol effects documented** (iOS 17+): `.bounce` / `.wiggle` (discrete, value-triggered), `.breathe` / `.variableColor` / `.rotate` (indefinite, isActive), `.contentTransition(.symbolEffect(.replace))` (symbol swap — requires `withAnimation`).
+- **`.task` over `Timer` for animation loops**: `.task` cancels automatically when the view disappears; `Timer` leaks. Pattern: `while !Task.isCancelled { try? await Task.sleep(for:); state.toggle() }`.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.4.0`
+
+---
+
 ## [1.3.0] — 2026-05-30
 
 Learnings from building GlassMorphActionView — an iOS 26 capsule ↔ red circle morphing toggle.
