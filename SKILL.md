@@ -104,6 +104,26 @@ Before including haptic code, check if `HapticFeedback.swift` exists anywhere in
 - **If found** → call `HapticFeedback.lightImpact()` etc. directly. Do NOT re-declare the struct.
 - **If not found** → call `UIImpactFeedbackGenerator` / `UISelectionFeedbackGenerator` directly inline, and add `import UIKit` at the top.
 
+### When to add haptics vs. skip
+
+**Add haptics when:**
+- A gesture has a threshold that triggers an irreversible action (drag-to-delete, swipe-to-dismiss) → `heavyImpact` at the threshold crossing
+- A toggle switches between two meaningful states → `mediumImpact` on commit
+- A destructive action (delete, clear, reset) is confirmed → `heavyImpact`
+- A scrub or dial moves across discrete data points → `selectionChanged` per step
+- A glass morph or metaball fuse/separate completes → `mediumImpact`
+
+**Skip haptics when:**
+- Pure symbol showcase with auto-loop and no user interaction
+- Loading indicator or ambient background animation (stars, particles drifting)
+- Prompt describes no user action at all
+
+**Haptic ladder for gesture arcs:**
+1. `lightImpact` — drag starts / touch down
+2. `mediumImpact` — threshold crossed / halfway
+3. `heavyImpact` — action commits / destruction confirmed
+4. `selectionChanged` — discrete value scrub / step
+
 ---
 
 ## Style Rules
@@ -325,6 +345,19 @@ Image(systemName: isPlaying ? "pause.fill" : "play.fill")
 
 Never use bare `.spring()` — always explicit `response` + `dampingFraction`. If user supplies values, use them verbatim. Map feel words: "stretchy" → 0.4/0.5, "snappy" → 0.35/0.6, "melts" → 0.6/0.8.
 
+**Archetype → physics default** (use when the prompt doesn't name a feel):
+
+| Archetype | Default physics |
+|---|---|
+| Symbol Showcase | `.easeInOut(duration: 0.4)` — symbol effects own their timing |
+| Liquid Toggle | UI pop `0.35/0.6` |
+| Gesture Card | Physics settle `0.45/0.7` |
+| Sheet Interaction | Standard settle `0.4/0.65` |
+| Data Dashboard | Dial/scrub `.interactiveSpring(response: 0.3, dampingFraction: 0.7)` |
+| Glass Morph | 3-phase rubber-band (see iOS 26 section) |
+| Particle / Physics Sim | No SwiftUI spring — custom physics loop |
+| Loading Indicator | `.linear(duration: 0.8)` — never spring (loops look jittery) |
+
 ---
 
 ## State & Code Rules
@@ -350,6 +383,25 @@ Relying on `.opacity(0)` alone does NOT prevent overflow — the component still
 // MARK: - Supporting Shapes
 // MARK: - Preview
 ```
+
+---
+
+## Archetype Catalog
+
+The archetype drives physics, haptics, and container defaults. Pick the closest match from the prompt — if ambiguous, choose the simpler one.
+
+| Archetype | Prompt signals | Container | Physics | Haptics |
+|---|---|---|---|---|
+| **Symbol Showcase** | "animate", "draw", "show" + symbol name | none (inline) | `.easeInOut` | none |
+| **Liquid Toggle** | "toggle", "switch", "flood", "metaball" | inline | UI pop `0.35/0.6` | mediumImpact on toggle |
+| **Gesture Card** | "drag", "pull", "rip", "swipe", "dismiss" | inline ZStack | Physics settle `0.45/0.7` | light start → heavy commit |
+| **Sheet Interaction** | "sheet", "sign", "draw", "pick", "form" | `.sheet` | Standard settle `0.4/0.65` | selectionChanged on controls |
+| **Data Dashboard** | "chart", "graph", "metric", "scrub", "data" | full-screen | Dial/scrub `.interactiveSpring` | selectionChanged per step |
+| **Glass Morph** | "glass", "fuse", "morph", "capsule" | inline | 3-phase rubber-band | mediumImpact on morph |
+| **Particle / Physics Sim** | "gravity", "fluid", "rope", "cloth", "sand" | full-screen | custom physics loop | lightImpact on touch |
+| **Loading Indicator** | "loading", "spinner", "progress", "scanning" | inline | `.linear(duration:)` | none |
+
+Print the resolved archetype on the `🎯  Archetype:` line. If the user's prompt overrides any default in this table, use their value and note the override in parentheses.
 
 ---
 

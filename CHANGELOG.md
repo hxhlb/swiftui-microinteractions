@@ -16,6 +16,9 @@ Learnings from analyzing over-specified prompts — why users had to write techn
 - **Defaults Contract**: explicit rule that any UI element absent from the prompt defaults to the Apple HIG primitive — `.sheet(isPresented:)` for containers, `Button("Done")` / `Button("Clear")` in `.toolbar`, `NavigationStack` for multi-step flows. Never invents a custom modal when a system one fits.
 - **Drawing/signature context rule**: prompts containing "signature", "draw", "sketch", or "handwrite" automatically get `.sheet`, toolbar Clear + Done, no custom dark background — without the user needing to spell any of it out.
 - **Cross-reference in SF Symbols section**: added a callout pointing readers to the Intent Inference table for auto-effect selection, so the lookup is always found from both directions.
+- **Archetype Catalog**: 8 named archetypes (Symbol Showcase, Liquid Toggle, Gesture Card, Sheet Interaction, Data Dashboard, Glass Morph, Particle/Physics Sim, Loading Indicator) each with their canonical container, physics preset, and haptic defaults. The `🎯 Archetype:` output line is now meaningful — it drives the rest of the generation, not just a label.
+- **Haptics context rules**: explicit add/skip decision tree. Skip for pure symbol showcases, loaders, and ambient animations. Add for threshold gestures, toggles, destructive actions, and scrub steps. Includes a 4-rung haptic ladder (light → medium → heavy → selectionChanged) tied to gesture arc phases.
+- **Physics ↔ Archetype mapping**: each archetype has a default physics preset so physics choices are deterministic when the prompt doesn't name a feel. Notably: Symbol Showcase → `.easeInOut` (symbol effects own timing), Loading Indicator → `.linear` (springs look jittery in loops), Glass Morph → 3-phase rubber-band.
 - Version output bumped to `⚙️ swiftui-microinteractions v1.6.0`
 
 ---
