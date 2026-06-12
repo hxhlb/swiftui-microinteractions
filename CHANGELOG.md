@@ -6,6 +6,20 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.6.0] — 2026-06-12
+
+Learnings from analyzing over-specified prompts — why users had to write technical details that the skill should infer automatically.
+
+- **Intent Inference step**: new pre-generation pass that resolves under-specified prompts to smart defaults and prints a `🔍 Inferred from prompt:` block. Users can see and override every auto-resolved detail before code is written.
+- **Symbol → Effect lookup table**: stroke-based symbols (`signature`, `pencil`, `checkmark`, `wifi`…) auto-get `.drawOn` auto-loop; flood-fill shapes (`heart.fill`, `star.fill`) auto-get `.bounce value:` since drawOn is invisible on them; animated-structure symbols get `.variableColor.iterative.reversing` or `.breathe`; rotation symbols get `.rotate`.
+- **Showcase mode vs. interaction mode auto-detection**: if the prompt contains no user action ("tap to", "on submit", "when user"…) → showcase mode with `.task` auto-loop. Only gates behind a tap when the prompt explicitly describes one. Eliminates the most common "nothing animates" failure.
+- **Defaults Contract**: explicit rule that any UI element absent from the prompt defaults to the Apple HIG primitive — `.sheet(isPresented:)` for containers, `Button("Done")` / `Button("Clear")` in `.toolbar`, `NavigationStack` for multi-step flows. Never invents a custom modal when a system one fits.
+- **Drawing/signature context rule**: prompts containing "signature", "draw", "sketch", or "handwrite" automatically get `.sheet`, toolbar Clear + Done, no custom dark background — without the user needing to spell any of it out.
+- **Cross-reference in SF Symbols section**: added a callout pointing readers to the Intent Inference table for auto-effect selection, so the lookup is always found from both directions.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.6.0`
+
+---
+
 ## [1.5.0] — 2026-06-11
 
 Learnings from building SignatureSheetView — a `.drawOn` signature inside an Apple default bottom sheet. Root-caused why the first build's draw animation looked "broken."

@@ -18,6 +18,64 @@ Generate a complete, compilable SwiftUI animation file in the legendary-Animo st
 
 ---
 
+## Intent Inference (runs before code generation)
+
+Before generating any code, parse the prompt for under-specified details and resolve them to defaults. Print a `🔍 Inferred from prompt:` block so the user can see — and override — what was auto-resolved. Only print lines that were actually inferred (not ones the user explicitly stated).
+
+### Step 1 — Symbol → Effect lookup
+
+If the prompt names a symbol (or describes one by subject) and does **not** specify an animation effect, apply this table:
+
+| Symbol / subject | Type | Auto-effect |
+|---|---|---|
+| `signature`, `pencil`, `pencil.line`, `scribble`, `lasso` | stroke | `.drawOn` auto-loop |
+| `checkmark`, `heart` (outline), `star` (outline), `wifi`, `antenna.radiowaves` | stroke | `.drawOn` auto-loop |
+| `heart.fill`, `star.fill`, `circle.fill` | flood-fill | `.bounce value:` (drawOn invisible on fill shapes) |
+| `circle.dotted`, `rays`, `waveform` | animated structure | `.variableColor.iterative.reversing` or `.breathe` |
+| `arrow.clockwise`, `arrow.2.circlepath`, `gear` | rotation | `.rotate` (indefinite, `isActive`) |
+| `bell`, `bell.fill` | discrete action | `.bounce value:` |
+
+### Step 2 — Showcase mode vs. interaction mode
+
+- **No user action described** (no "tap to", "on submit", "when user"…) → **showcase mode**: drive with `.task` auto-loop. Symbol animates on its own without any tap required.
+- **User action described** → gate the animation behind that action only. Do not add an auto-loop.
+
+### Step 3 — Apply Defaults Contract
+
+Resolve any unspecified UI elements using the Defaults Contract (see below).
+
+### Step 4 — Print inference log
+
+```
+🔍  Inferred from prompt:
+    Symbol    → <name> (<stroke|fill>) → <effect>
+    Mode      → showcase (auto-loop) | interaction (tap/submit)
+    Container → .sheet (Apple default) | inline | none
+    Controls  → Clear · Done | none
+```
+
+---
+
+## Defaults Contract
+
+**Absent = Apple HIG default.** Any UI element not mentioned in the prompt defaults to the Apple system primitive — never invent a custom modal, overlay, or container when a system one fits.
+
+| Element | Apple default | When to escalate |
+|---|---|---|
+| Container | `.sheet(isPresented:)` | Prompt names custom modal / full-screen |
+| Dismiss | `Button("Done")` in `.toolbar(.confirmationAction)` | Prompt names custom button |
+| Clear / reset | `Button("Clear")` in `.toolbar(.cancellationAction)` | Drawing/signature context only |
+| Background inside sheet | System sheet bg (no custom dark fill) | Prompt explicitly names dark/custom bg |
+| Navigation | `NavigationStack` | Multi-step flow or title implied |
+| Loading state | `.progressView()` or symbol `.variableColor` | Prompt names a specific loader shape |
+
+**Drawing / signature context rule** — if the prompt contains "signature", "draw", "sketch", or "handwrite", automatically apply:
+- Container: `.sheet(isPresented:)`
+- Toolbar: `Button("Clear")` (`.cancellationAction`) + `Button("Done")` (`.confirmationAction`)
+- No custom dark background inside the sheet (let the system sheet surface show through)
+
+---
+
 ## Asset Scanning (run before generating any image-dependent animation)
 
 If the animation involves images, photos, or cards, scan for existing assets first:
@@ -178,6 +236,8 @@ LinearGradient(colors: [Color(white: 0.97), Color(white: 0.88)],
 ---
 
 ## SF Symbols Animation (iOS 17–26)
+
+> **Auto-effect selection:** See Intent Inference § Symbol → Effect lookup above. The table there maps symbol names to the correct effect automatically — no need to specify `.drawOn`, `.breathe`, etc. in the prompt unless you want to override the default.
 
 ### `.drawOn` — iOS 26 only (SF Symbols 7)
 
@@ -343,7 +403,7 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.5.0
+⚙️  swiftui-microinteractions v1.6.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
