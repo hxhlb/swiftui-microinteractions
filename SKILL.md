@@ -22,6 +22,54 @@ Generate a complete, compilable SwiftUI animation file in the legendary-Animo st
 
 Before generating any code, parse the prompt for under-specified details and resolve them to defaults. Print a `🔍 Inferred from prompt:` block so the user can see — and override — what was auto-resolved. Only print lines that were actually inferred (not ones the user explicitly stated).
 
+### Step 0 — Normalize designer vocabulary
+
+Translate any designer words in the prompt into skill-understood terms before running subsequent steps. This lets non-technical prompts ("snappy card that rips with anticipation") produce the same output as fully specified ones.
+
+**Animation feel words → physics preset:**
+
+| Designer says | Maps to |
+|---|---|
+| snappy / crisp / tight | UI pop `0.35/0.6` |
+| bouncy / springy / elastic | Snap `0.35/0.5` |
+| stretchy / rubber / wobbly | 3-phase rubber-band (see iOS 26 section) |
+| melts / floats / soft / gentle | Slow morph `0.6/0.8` |
+| stiff / precise / mechanical | Precision stiff `interpolatingSpring(220, 22)` |
+| linear / steady / constant | `.linear(duration:)` |
+
+**Motion principle words → archetype / animation signals:**
+
+| Designer says | Implies |
+|---|---|
+| anticipation | pre-stretch phase before main move |
+| follow-through | add overshoot to settle animation |
+| squash & stretch | scale deformation on impact (x expand, y compress) |
+| staging / stagger | offset `.animation(delay:)` per element |
+| pulse / breathe | `.breathe` isActive loop |
+| ripple | radial spread `Circle` scale from tap point |
+| flood | Liquid Toggle archetype, metaball fill |
+| wiggle / shake | `.wiggle value:` — error / rejection signal |
+| pop | quick `.scaleEffect` overshoot + snap back |
+| morph | Glass Morph archetype or shape interpolation |
+
+**UI element names → SwiftUI primitives:**
+
+| Designer says | Also called | SwiftUI |
+|---|---|---|
+| bottom sheet / tray / drawer / panel | pull-up, modal sheet | `.sheet` + `.presentationDetents` |
+| modal / dialog / overlay / lightbox | full-screen sheet | `.sheet` (full) or `.fullScreenCover` |
+| popover / tooltip / callout / bubble | hover card | `.popover` |
+| toast / snackbar / nudge / banner | inline notification | custom overlay + auto-dismiss `.task` |
+| alert / warning / confirm | dialog | `.alert` or `.confirmationDialog` |
+| card / tile / surface | panel | `RoundedRectangle` + material |
+| chip / tag / pill / badge | filter tag | custom `Capsule` |
+| FAB / floating action button | floating button | absolute-positioned `Button` in `ZStack` |
+| segmented control / pill selector / tab strip | toggle group | `Picker(.segmented)` or custom pill |
+| skeleton / shimmer / placeholder | loading placeholder | `redacted(.placeholder)` or animated opacity |
+| spinner / loader / throbber | activity indicator | `ProgressView` |
+| contextual menu / long-press menu | press-hold menu | `.contextMenu` |
+| action sheet / bottom action menu | options sheet | `.confirmationDialog` |
+
 ### Step 1 — Symbol → Effect lookup
 
 If the prompt names a symbol (or describes one by subject) and does **not** specify an animation effect, apply this table:
@@ -48,6 +96,7 @@ Resolve any unspecified UI elements using the Defaults Contract (see below).
 
 ```
 🔍  Inferred from prompt:
+    Vocab     → "<designer word>" → <normalized term>  (only if Step 0 fired)
     Symbol    → <name> (<stroke|fill>) → <effect>
     Mode      → showcase (auto-loop) | interaction (tap/submit)
     Container → .sheet (Apple default) | inline | none
