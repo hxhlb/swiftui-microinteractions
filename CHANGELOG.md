@@ -6,6 +6,17 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.7.0] — 2026-06-13
+
+Learnings from building ApplePayCardCarouselView — MeshGradient cards, sheet wrapping, and numericText transition.
+
+- **SourceKit `HapticFeedback` false positive**: SourceKit reports `Cannot find 'HapticFeedback' in scope` in files written to `Carousels/` or `Animations/`. It is a single-file analysis artifact — `HapticFeedback.swift` is in the module Sources and resolves at compile time. Rule: never alter the code in response to this diagnostic.
+- **Sheet wrapping pattern**: when a demo view presents content as a native `.sheet`, use two structs in the same file — public outer launcher (trigger button + `.sheet(isPresented:)`) and private inner sheet content (with `@Environment(\.dismiss)`). `private` model types in the same file are visible to both structs without access-level changes.
+- **Numeric text transition — split currency prefix**: `.contentTransition(.numericText(value:))` on `"$173.11"` glitches the `$` during the digit roll. Split into a static `Text("$")` and an animated `Text(String(format: "%.2f", amount))`. Use `selectionChanged` haptic (not `mediumImpact`) when the transition is driven by a discrete scrub step.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.7.0`
+
+---
+
 ## [1.6.0] — 2026-06-12
 
 Learnings from analyzing over-specified prompts — why users had to write technical details that the skill should infer automatically.

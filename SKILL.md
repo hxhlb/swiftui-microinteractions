@@ -173,6 +173,9 @@ Before including haptic code, check if `HapticFeedback.swift` exists anywhere in
 3. `heavyImpact` — action commits / destruction confirmed
 4. `selectionChanged` — discrete value scrub / step
 
+**SourceKit `HapticFeedback` false positive — always ignore:**
+In files written to `Carousels/` or `Animations/`, SourceKit reports `Cannot find 'HapticFeedback' in scope`. This is **not a real error** — SourceKit analyzes the new file in isolation and doesn't see other module members. `HapticFeedback.swift` is registered in the Sources build phase; the real compiler resolves it correctly. Do not add `import UIKit`, do not re-declare the struct, do not alter the code.
+
 ---
 
 ## Style Rules
@@ -425,6 +428,45 @@ Relying on `.opacity(0)` alone does NOT prevent overflow — the component still
 
 **Floating bar layout:** Build multi-component bars (pill + separate action button) as `HStack` of independent views, not one monolithic ZStack. Each component gets its own glass background and shadow.
 
+**Sheet wrapping — outer launcher + private inner content:**
+When a demo needs a native `.sheet`, use two structs in the same file. `private` model types defined in the file are visible to both structs — no access-level changes needed.
+
+```swift
+struct MyDemoView: View {               // public — registered in ContentView
+    @State private var showSheet = false
+    var body: some View {
+        ZStack { Color("BgColor").ignoresSafeArea(); triggerButton }
+            .sheet(isPresented: $showSheet) {
+                MySheetContent()
+                    .presentationDetents([.height(540)])
+                    .presentationCornerRadius(28)
+                    .presentationDragIndicator(.visible)
+            }
+    }
+}
+
+private struct MySheetContent: View {  // private — only used as sheet body
+    @Environment(\.dismiss) private var dismiss
+    // sheet body here — X button calls dismiss()
+}
+```
+
+**Numeric text transition — split the currency prefix:**
+`.contentTransition(.numericText(value:))` on a currency string like `"$173.11"` can glitch the `$` during the digit roll. Split prefix and number into separate `Text` views — only the numeric part gets the transition:
+
+```swift
+HStack(alignment: .firstTextBaseline, spacing: 1) {
+    Text("$")                                          // static — no transition
+        .font(.system(size: 32, weight: .bold))
+    Text(String(format: "%.2f", amount))
+        .font(.system(size: 44, weight: .bold))
+        .contentTransition(.numericText(value: amount))
+        .animation(.spring(response: 0.4, dampingFraction: 0.65), value: triggerValue)
+}
+```
+
+When the transition is driven by a discrete step (card carousel, dial tick): use `selectionChanged` haptic, not `mediumImpact` — it matches the numeric ticker feel.
+
 **File layout (mandatory MARK order):**
 ```
 // MARK: - Model
@@ -504,7 +546,7 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.6.0
+⚙️  swiftui-microinteractions v1.7.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
