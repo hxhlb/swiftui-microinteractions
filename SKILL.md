@@ -192,6 +192,28 @@ In files written to `Carousels/` or `Animations/`, SourceKit reports `Cannot fin
 
 ---
 
+## Light Theme
+
+The Style Rules above are dark-first. For a **light** UI (dashboards, cards, sheets on white), depth comes from **tonal deltas, not shadows** — premium light design avoids drop shadows between stacked surfaces.
+
+**Tonal stack — separate surfaces by lightness:**
+
+| Role | Value |
+|---|---|
+| Screen background | `Color(white: 0.92)` (or gradient `0.93 → 0.87`) |
+| Card / row surface | `Color.white` |
+| Inset well (icon circle, field) | `Color(white: 0.95)` |
+| Track / divider | `Color(white: 0.88)` |
+| Ink (primary text) | `Color(white: 0.10)` |
+| Muted (secondary text) | `Color(white: 0.55)` |
+
+Rules:
+- **No `.shadow` between stacked light surfaces** — a white row on a `0.92` background already reads as raised. Reserve a shadow for a single floating primary (e.g. a dark CTA), never for every row.
+- Accent colors must be **deepened** for contrast on white — e.g. cyan `Color(red: 0.30, green: 0.52, blue: 0.95)`, the opposite of the dark-bg cyan.
+- A dark capsule CTA (`Color(white: 0.10)` fill, white label) is the light-theme equivalent of the glass button.
+
+---
+
 ## iOS 26 Liquid Glass
 
 Use `.glassEffect()` on iOS 26+, fall back to `.ultraThinMaterial` on older OS. Always wrap in a `@ViewBuilder` helper so both paths share the same call site:
@@ -412,6 +434,94 @@ Never use bare `.spring()` — always explicit `response` + `dampingFraction`. I
 
 ---
 
+## Press Feedback — `PressableScale`
+
+Every tappable row/button should shrink under the finger and feel like a real press. Use a **gesture-driven** modifier, not `Button`/`ButtonStyle` — `ButtonStyle.isPressed` cannot fire a haptic on the press-*down* edge, but a `DragGesture(minimumDistance: 0)` can.
+
+```swift
+private struct PressableScale: ViewModifier {
+    var pressedScale: CGFloat = 0.96
+    let action: () -> Void
+    @State private var isPressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? pressedScale : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            .contentShape(Rectangle())
+            .simultaneousGesture(                       // simultaneous → won't block parent scroll
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !isPressed {                 // haptic on the DOWN edge only
+                            isPressed = true
+                            HapticFeedback.lightImpact()
+                        }
+                    }
+                    .onEnded { v in
+                        isPressed = false
+                        // lift-inside-to-fire: dragging off cancels, like a real UIButton
+                        if abs(v.translation.width) < 20, abs(v.translation.height) < 20 { action() }
+                    }
+            )
+    }
+}
+extension View {
+    func pressable(scale: CGFloat = 0.96, action: @escaping () -> Void = {}) -> some View {
+        modifier(PressableScale(pressedScale: scale, action: action))
+    }
+}
+```
+
+Non-obvious rules baked in:
+- **`.simultaneousGesture`** (not `.gesture`) so a row inside a `ScrollView`/`List` still scrolls.
+- **Haptic on the down edge only** (`if !isPressed`) — not on every `onChanged` tick.
+- **Lift-inside-to-fire** — verify the finger lifted within ~20pt before running `action`; a drag-away must cancel.
+- `pressedScale` ≈ `0.90` for round icon buttons, ≈ `0.965` for wide rows.
+
+---
+
+## Entrance / Appear Animation
+
+Premium screens *assemble themselves*. Stagger children in on appear with a single `@State` flag.
+
+```swift
+@State private var appeared = false
+
+ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+    rowView(item)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 16)
+        .scaleEffect(appeared ? 1 : 0.97, anchor: .top)
+        .animation(.spring(response: 0.5, dampingFraction: 0.82)
+                       .delay(0.10 + Double(i) * 0.07), value: appeared)
+}
+.onAppear { appeared = true }   // trigger once — NEVER init appeared = true
+```
+
+- Combine `opacity + offset(y:) + scaleEffect(anchor:.top)` for a soft rise-and-settle; `0.07s` per-index delay reads as a cascade.
+- **Inside a `.sheet`, `@State` resets on every presentation** — so this re-fires each time the sheet opens, a free "assembles itself" entrance with no extra code.
+- Verification trap (same as `.drawOn`): never initialise the flag to its destination — the transition won't play.
+
+---
+
+## Data Dashboard Patterns
+
+- **Animated proportional bar** — capsule track + fill whose width grows from 0 on appear and re-springs on data change:
+```swift
+GeometryReader { geo in
+    ZStack(alignment: .leading) {
+        Capsule().fill(track).frame(height: 6)
+        Capsule().fill(ink.opacity(0.85))
+            .frame(width: geo.size.width * (appeared ? share : 0), height: 6)
+            .animation(.spring(response: 0.6, dampingFraction: 0.85), value: appeared)
+            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: selection)
+    }
+}.frame(height: 6)
+```
+- **`.numericText` as a count-up** — not just for currency. A hero metric that changes with a segmented selector rolls its digits via `.contentTransition(.numericText(value: Double(total)))` + `.animation(..., value: period)`. Pair the segment switch with `selectionChanged` haptic and a sliding indicator (see Tab Bar Patterns).
+
+---
+
 ## State & Code Rules
 
 - Default: pure `@State` for all gesture tracking · `@GestureState` only if value must auto-reset
@@ -541,12 +651,49 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 
 ---
 
+## Carousels & Paging
+
+**Velocity-aware paging — threshold on `predictedEndTranslation`, not raw translation.** A slow short drag shouldn't page; a fast flick should — even if the finger barely moved. The predicted end is velocity-aware:
+
+```swift
+DragGesture(minimumDistance: 12)
+    .onChanged { v in dragOffset = v.translation.width * 0.5 }   // 0.5 = drag resistance
+    .onEnded { v in
+        let threshold: CGFloat = 52
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+            if v.predictedEndTranslation.width < -threshold, index < count - 1 {
+                index += 1; HapticFeedback.selectionChanged()
+            } else if v.predictedEndTranslation.width > threshold, index > 0 {
+                index -= 1; HapticFeedback.selectionChanged()
+            }
+            dragOffset = 0
+        }
+    }
+```
+
+**Fan / card-stack layout** — position each card from its distance to the selected index, scale down siblings, z-order by proximity:
+
+```swift
+let diff = CGFloat(index - selectedIndex)
+card
+    .scaleEffect(index == selectedIndex ? 1.0 : 0.86)
+    .offset(x: diff * xStep + dragOffset, y: index == selectedIndex ? -10 : 14)
+    .zIndex(index == selectedIndex ? 10 : Double(5 - abs(index - selectedIndex)))
+    .animation(.spring(response: 0.42, dampingFraction: 0.72), value: selectedIndex)
+```
+
+- `selectionChanged` (not `mediumImpact`) per card switch — discrete scrub feel.
+- Apply a **resistance multiplier** (`* 0.5`) to `dragOffset` so the stack feels weighty under the finger.
+- `MeshGradient` (iOS 18+, 9-point) makes a premium card/orb fill — animate the control points for a living surface.
+
+---
+
 ## Output (Create mode)
 
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.7.0
+⚙️  swiftui-microinteractions v1.8.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>

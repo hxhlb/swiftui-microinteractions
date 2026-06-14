@@ -6,6 +6,19 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.8.0] — 2026-06-14
+
+Learnings from building PowerAnalyticsCardView (light-theme dashboard in a bottom sheet) and the carousel mechanics behind ApplePayCardCarouselView.
+
+- **`PressableScale` press-feedback primitive**: a reusable `ViewModifier` giving every row/button a real tactile press. Key rules encoded — use `DragGesture(minimumDistance: 0)` not `ButtonStyle` (the latter can't fire a haptic on the press-*down* edge); `lightImpact` on the down edge only; **lift-inside-to-fire** (drag off ~20pt cancels); attach via `.simultaneousGesture` so it doesn't block parent scroll; `0.90` scale for round buttons, `0.965` for rows.
+- **Entrance / Appear Animation pattern**: staggered `opacity + offset(y:) + scaleEffect(anchor:.top)` gated on one `@State` flag with `.delay(index * 0.07)`, flipped in `.onAppear`. Documented the nuance that `@State` resets on each `.sheet` presentation, so the cascade re-fires for free every open — plus the don't-init-to-destination verification trap.
+- **Light Theme section** (the skill was dark-only): a tonal token table (screen `0.92` / surface white / well `0.95` / track `0.88` / ink `0.10` / muted `0.55`) and the rule that **depth comes from tonal deltas, not shadows** — no drop shadows between stacked light surfaces; deepen accent colors for contrast on white; dark capsule CTA as the light-theme glass-button equivalent.
+- **Data Dashboard Patterns**: animated proportional capsule bar (GeometryReader fill growing from 0 on appear, re-springing on data change) and `.numericText` used as a count-up for a hero metric driven by a segmented selector.
+- **Carousels & Paging** (from ApplePayCardCarouselView): velocity-aware paging via `predictedEndTranslation` (flick detection) rather than raw translation; fan/card-stack layout (offset/scale/zIndex by distance to selected index); `* 0.5` drag-resistance multiplier; `selectionChanged` per card switch; MeshGradient 9-point premium card fill.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.8.0`
+
+---
+
 ## [1.7.0] — 2026-06-13
 
 Learnings from building ApplePayCardCarouselView — MeshGradient cards, sheet wrapping, and numericText transition.
