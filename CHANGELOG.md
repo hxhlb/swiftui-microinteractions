@@ -6,6 +6,48 @@ Format: `[version] — date — summary`
 
 ---
 
+## [1.18.0] — 2026-07-06
+
+Learnings from building a Song App (a 3D SceneKit album-cover object driven by a native-physics vertical stack carousel) — the skill's first real 3D/SceneKit and UIKit-scroll-physics patterns.
+
+- **SceneKit 3D Object Showcase section (new)**: embed a real `SCNScene` via `UIViewRepresentable` for objects that tilt/rotate in true 3D (not `rotation3DEffect`). Truly transparent embed needs **four** places cleared (`scene.background.contents = nil` plus `isOpaque`/`backgroundColor`/`layer.isOpaque` on the view) — missing any one leaves a white/black rectangle. Driving a node's transform from continuously-changing SwiftUI state (scroll offset, drag) needs `SCNTransaction.disableActions = true`, or SceneKit's own implicit animation fights and lags behind the driver. A 6-face `SCNBox` can act as a "sleeve" object — front face art, one face a **dynamically rendered label image** (Core Graphics, drawn once), rest solid color. One directional key light + one ambient fill is a reusable default lighting rig. A dual `embedded: Bool` mode (opaque standalone vs. transparent + cheaper antialiasing when many instances render together) lets one component serve both a hero showcase and a repeated stack item.
+- **Deriving Accent Colors from Artwork section (new)**: sample a downscaled copy of an image and weight pixels by saturation+brightness (not raw frequency) to find a representative accent color — plain "most frequent" just returns the boring background fill. Reject near-white/near-black outliers explicitly; darken a near-white winner so it doesn't read as a blank panel. Contrasting text color uses perceptual luminance (`0.299r + 0.587g + 0.114b`), not a channel average, since green reads brighter to the eye than red/blue.
+- **Native-Physics Scroll Stacks section (new)**: for a stack that should feel like scrolling a native list (real momentum/rubber-banding, not a `DragGesture` spring approximation), drive it with an invisible, content-less `UIScrollView` whose `contentOffset` pushes a plain `CGFloat` binding — a completely separate SwiftUI layer reads that binding to position its own cards. Traps: gate programmatic `setContentOffset` behind `!isTracking && !isDecelerating` or the binding round-trip fights the user's touch; fire a settle-tick haptic by rounding to nearest index and diffing against the last-fired index (robust regardless of item spacing); gate the boundary/rubber-band haptic with a `boundaryFired` flag reset on next drag so it fires once per excursion, not once per frame; cull far-off items with a `renderWindow` check — essential when each item is an expensive per-instance render (SceneKit, Metal, video).
+- **Asymmetric distance-response curves (extends Coverflow)**: nothing requires a continuous fan/stack transform to be symmetric — branch the degrees-per-step (or scale/opacity falloff) on the *sign* of the distance, not just its magnitude, when the two directions should read as physically different (cards already passed vs. cards still ahead).
+- **New Archetype Catalog row**: `3D Object Showcase` — SceneKit rig physics, `SCNTransaction.disableActions` for driven properties, never a spring.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.18.0`
+
+---
+
+## [1.17.0] — 2026-07-06
+
+Learnings from building NowPlayingView (a Liquid Glass "Now Playing" screen with an auto-advancing, infinite-wrap poster deck that's also swipe-to-dismiss, plus a content-driven glass tab bar).
+
+- **Auto-Advancing Card Deck section (new)**: the Tinder-style deck archetype — infinite wrap via `(i - index + count) % count`, one `advance()` function called by both the swipe gesture and a `.task` timer so the two paths can't drift apart, and the critical trap: render the discarded/falling card as an **independent overlay outside the stack's `ForEach`**, not as a removal inside it, so bumping `index` reshuffles the stack immediately instead of fighting the exit animation. Two deliberately different durations (fast reshuffle, slower fall) sell "the next one rose to the front" rather than "we waited." Includes a progressive stepped-offset formula (18, 15, 12, 9…) as a more physical alternative to a constant per-depth step.
+- **Gate-and-rearm threshold haptics (new, under Haptics)**: a drag that crosses a threshold, retreats, and crosses again should buzz on every crossing — gate on entry, rearm on exit (`didCrossThreshold` reset when the drag falls back below the line), not a fire-once-ever boolean.
+- **Liquid Glass moving-content trap (new)**: never put a live `.glassEffect()` on a chip attached to a view that's being actively dragged/animated — glass resamples its backdrop continuously and visibly "grows/pulses" on fast-moving elements. Use a static translucent color fill for anything riding on moving content; reserve real glass for static or slow-moving elements.
+- **`.regular` vs `.clear` glass style (new)**: `.clear` is more transparent than `.regular` — reach for it on a bar/control over especially rich or busy content (a poster/photo backdrop) where `.regular` would over-flatten the art.
+- **Expanding tab bar variant (new, under Tab Bar Patterns)**: a content-driven alternative to the sliding-indicator bar — only the selected tab shows its label, so the glass capsule autosizes around content with no indicator math at all; right for a floating bar over content, not a fixed-width full-screen bar.
+- **Image-colored ambient shadow (new, under Style Rules)**: duplicate the card's own artwork behind it, heavily blurred/dimmed/offset, instead of a plain black `.shadow` — the halo reads as tinted by the actual content instead of generic weight. Reserve for hero cards, since it's a duplicate image render.
+- **Mask-vs-scrim fade-out (extends the selection-synced backdrop pattern)**: a `LinearGradient` scrim dims a photo so text stays legible *on top of it*; a `.mask` with the same gradient shape instead *reveals* a solid color behind the image for a hard, clean handoff to a card below — pick by what's underneath the backdrop, not by habit.
+- Version output bumped to `⚙️ swiftui-microinteractions v1.17.0`
+
+---
+
+## [1.16.0] — 2026-07-06
+
+Learnings from building MoviePosterSwipeCarousel (a velocity-aware movie poster carousel with a coverflow-style continuous fan, a selection-synced blurred backdrop, and variable-width page dots).
+
+- **Coverflow / continuous depth fan (new, under Carousels & Paging)**: replaces the two-state (`selected`/`not`) fan with one **signed, drag-blended distance** (`(i - selectedIndex) - dragOffset/cardWidth`) driving scale, rotation (capped ±14°), y-offset, opacity, and blur-by-distance together, so every card — not just the immediate neighbor — recedes continuously and updates *while the finger is still dragging*, not just on release. Blur-by-distance is called out as a cheap depth-of-field that sells "depth" far more than scale/opacity alone.
+- **Selection-synced immersive backdrop (new)**: a full-bleed blurred+saturated background that cross-fades to match the selected carousel item. Stack all candidate images and cross-fade `opacity` — never swap which `Image` is in the tree, or the cross-fade can't animate. `.blur(radius:opaque: true)` avoids the translucent-edge artifact plain `.blur` produces at large radii; apply blur/saturation once to the whole stack, not per-image.
+- **Page indicator dots (new)**: a lightweight capsule-dot position indicator (active dot stretches 7pt → 22pt) as a simpler alternative to the Tab Bar sliding indicator when there's no tab content to align to.
+- **Detail text swap on selection (new)**: `.contentTransition(.opacity)` keyed to a changing `.id()` as a lightweight alternative to `.numericText` for non-numeric text (titles, metadata) that should cross-fade with a selection change — with the trap that the `.id()` must actually change per item, not just the displayed string.
+- **Gold/rating color added to Style Rules**: `Color(red: 1.0, green: 0.84, blue: 0.35)` for star ratings and similar accents.
+- **Gloss overlay recipe added to Style Rules**: a diagonal `.white.opacity(0.18) → .clear` gradient with `.blendMode(.softLight)` over a photographic card reads as premium glass sheen without washing out the photo (softLight, not screen, is what keeps it subtle).
+- Version output bumped to `⚙️ swiftui-microinteractions v1.16.0`
+
+---
+
 ## [1.15.0] — 2026-07-01
 
 Added a **Metal Shaders (`.colorEffect` / stitchable)** section — learnings from building a poke-able molten liquid-metal surface as a real GPU shader (not a Canvas look-alike).

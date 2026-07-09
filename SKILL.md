@@ -177,6 +177,22 @@ Before including haptic code, check if `HapticFeedback.swift` exists anywhere in
 3. `heavyImpact` — action commits / destruction confirmed
 4. `selectionChanged` — discrete value scrub / step
 
+**Gate-and-rearm threshold haptics — fire once per crossing, not once ever.** A drag that crosses a dismiss/commit threshold, retreats, then crosses again should buzz *every* crossing, not just the first. A plain "fired" boolean that's never reset only fires once for the life of the gesture. Gate on entry, **rearm on exit**:
+
+```swift
+@State private var didCrossThreshold = false
+// in onChanged:
+if !didCrossThreshold, y > threshold {
+    didCrossThreshold = true
+    impact(.medium)                     // fires on every fresh crossing
+} else if didCrossThreshold, y <= threshold {
+    didCrossThreshold = false           // rearm — retreating past the line resets it
+}
+// reset both didCrossThreshold and any didStartDrag flag in onEnded
+```
+
+Apply the same gate (without rearm, since it only happens once) to the touch-down `lightImpact`, with a small dead-zone (`y > 2`) so sub-pixel jitter at gesture start doesn't fire it prematurely.
+
 **SourceKit `HapticFeedback` false positive — always ignore:**
 In files written to `Carousels/` or `Animations/`, SourceKit reports `Cannot find 'HapticFeedback' in scope`. This is **not a real error** — SourceKit analyzes the new file in isolation and doesn't see other module members. `HapticFeedback.swift` is registered in the Sources build phase; the real compiler resolves it correctly. Do not add `import UIKit`, do not re-declare the struct, do not alter the code.
 
@@ -190,7 +206,25 @@ In files written to `Carousels/` or `Animations/`, SourceKit reports `Cannot fin
 
 **Opacity levels:** ghost `0.06–0.08` · subtle `0.12` · inactive `0.3` · secondary `0.5` · active `0.8–0.9` · full `1.0`
 
-**Colors:** white + opacity dominant · cyan `Color(red: 0.45, green: 0.65, blue: 1.0)` · green `Color(red: 0.55, green: 0.95, blue: 0.75)` · never `.blue/.green/.red` on dark bg
+**Colors:** white + opacity dominant · cyan `Color(red: 0.45, green: 0.65, blue: 1.0)` · green `Color(red: 0.55, green: 0.95, blue: 0.75)` · gold/rating `Color(red: 1.0, green: 0.84, blue: 0.35)` · never `.blue/.green/.red` on dark bg
+
+**Gloss overlay (photographic cards):** a diagonal sheen on a poster/photo card reads as premium glass without touching the image — overlay a `LinearGradient(colors: [.white.opacity(0.18), .clear], startPoint: .topLeading, endPoint: .center)` clipped to the card shape with `.blendMode(.softLight)`. `.softLight` (not `.screen`) keeps the highlight subtle enough not to wash out the photo underneath.
+
+**Image-colored ambient shadow (glow):** a plain black `.shadow` under a poster/photo card reads as generic weight, not light. For a shadow that feels like it belongs to that specific artwork, duplicate the image itself behind the card, heavily blurred and dimmed:
+
+```swift
+.background {
+    Image(item.imageName)
+        .resizable().scaledToFill()
+        .frame(width: cardWidth, height: cardHeight)
+        .clipShape(cardShape)
+        .blur(radius: 34)
+        .opacity(0.65)
+        .offset(y: 22)
+        .scaleEffect(0.96)   // slightly smaller so the blurred edge doesn't peek past the card
+}
+```
+The result is a soft, color-tinted halo instead of a neutral drop shadow — reserve it for hero cards (front of a deck, selected item), not every row, since it's a duplicate render of the image. Works for any image-backed card — poster, album art, product photo.
 
 **Gradients:** two-tone only · blob fill `[.white, Color(white: 0.88)]` · progress `[cyan, green]`
 
@@ -238,6 +272,10 @@ private var isDark: Bool { scheme == .dark }
 
 - **Real API, never a look-alike.** Use real `.glassEffect(.regular)` (or `.regular.interactive()` for a pressable control) on iOS 26. Do **not** fake it with a near-opaque fill as the *primary* surface — a `Capsule().fill(.ultraThinMaterial)` or a heavy `.glassEffect(.regular.tint(.white.opacity(0.5)))` reads as a flat chip, not glass. `.ultraThinMaterial` is the **< iOS 26 fallback only**, gated behind `if #available(iOS 26.0, *)`.
 - **Put busy, colorful content BEHIND the glass** so the refraction/specular actually reads — an image grid, a photo wall, a vivid gradient. On a flat solid or pale background Liquid Glass is nearly invisible and looks like plain material; that's the #1 reason a "glass" build looks wrong. (For a standalone showcase, an image-tile grid backdrop is the safest way to make the effect pop.)
+
+**`.regular` vs `.clear`:** `.glassEffect(.regular, in:)` is the default frosted intensity — reach for `.glassEffect(.clear, in:)` on a bar/control that sits over especially rich, busy, high-contrast content (a poster, a photo backdrop) where `.regular`'s frosting would flatten the artwork more than wanted. `.clear` lets more of the backdrop's color and detail through.
+
+**Never put a live `.glassEffect()` on a chip riding a view that's actively being dragged or animated fast** (a meta pill on a card mid-swipe, a badge on a scrubber thumb). Glass re-samples its backdrop continuously, and on a fast-moving element that resampling reads as the glass visibly **growing or pulsing** rather than looking stable — not a subtle bug, an obviously broken-looking one. Use a plain static translucent fill instead (`Color.black.opacity(0.45)` in the same shape) for anything attached to actively-moving content; reserve real glass for elements that are static or move slowly.
 
 Use `.glassEffect()` on iOS 26+, fall back to `.ultraThinMaterial` on older OS. Always wrap in a `@ViewBuilder` helper so both paths share the same call site:
 
@@ -656,6 +694,7 @@ The archetype drives physics, haptics, and container defaults. Pick the closest 
 | **Particle / Physics Sim** | "gravity", "fluid", "rope", "cloth", "sand" | full-screen | custom physics loop | lightImpact on touch |
 | **Metal Shader** | "liquid chrome", "molten metal", "holographic", "plasma", "shader" | full-screen | `TimelineView` clock (never spring) | lightImpact on touch |
 | **Loading Indicator** | "loading", "spinner", "progress", "scanning" | inline | `.linear(duration:)` | none |
+| **3D Object Showcase** | "3D", "SceneKit", "spin the cover", "album", "boxed product" | embedded or full-screen | SceneKit rig, `SCNTransaction.disableActions` for driven properties (never spring) | selectionChanged per settle / none if passive |
 
 Print the resolved archetype on the `🎯  Archetype:` line. If the user's prompt overrides any default in this table, use their value and note the override in parentheses.
 
@@ -704,6 +743,30 @@ Image(systemName: isExpanded ? "xmark" : "ellipsis")
 
 **Standard heights:** `barHeight = 49pt` (icon-only) · `barHeight = 68pt` (icon + label)
 
+**Expanding tab bar (content-driven width, no indicator math)** — when the bar doesn't need fixed-width cells (e.g. a floating glass capsule over content, not a full-width screen bar), skip the `GeometryReader`/indicator entirely: only the selected tab shows its label, so its `Button` naturally grows and the container reflows around it.
+
+```swift
+HStack(spacing: 10) {
+    ForEach(NavTab.allCases, id: \.self) { tab in
+        let isSelected = tab == selectedTab
+        Button { select(tab) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: tab.symbol).symbolEffect(.bounce, value: isSelected)
+                if isSelected { Text(tab.title) }   // label only exists when selected — no width reserved
+            }
+            .foregroundStyle(.white.opacity(isSelected ? 1 : 0.6))
+            .padding(.horizontal, 14).padding(.vertical, 9)
+        }
+        .buttonStyle(.plain)
+    }
+}
+.padding(6)
+.glassEffect(.clear, in: .capsule)                                    // capsule autosizes to content
+.animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
+```
+
+Simpler than the sliding-indicator recipe when the bar floats over rich content rather than filling the screen width — there's no slot math because there are no fixed slots. Trade-off: tabs shift position as labels appear/disappear, so it reads as "compact icon bar with one tab announcing itself," not a stable grid — pick the sliding-indicator version instead when tabs must stay in fixed positions.
+
 ---
 
 ## Carousels & Paging
@@ -741,6 +804,134 @@ card
 - Apply a **resistance multiplier** (`* 0.5`) to `dragOffset` so the stack feels weighty under the finger.
 - `MeshGradient` (iOS 18+, 9-point) makes a premium card/orb fill — animate the control points for a living surface.
 
+### Coverflow / continuous depth fan
+
+The two-state fan above (`selected` vs `not`) is enough for a simple stack, but a **"flip through posters/cards" coverflow** wants every card — not just the immediate neighbor — to recede continuously into the distance, and to do so *while the finger is still dragging*, not just after the gesture ends. Drive every transform off one **signed, drag-blended distance** instead of a boolean:
+
+```swift
+private func effectiveDistance(for i: Int) -> CGFloat {
+    CGFloat(i - selectedIndex) - (dragOffset / cardWidth)   // blends live drag in
+}
+
+private func scale(for i: Int)    -> CGFloat  { max(0.82, 1.0 - 0.12 * abs(effectiveDistance(for: i))) }
+private func rotation(for i: Int) -> Double   { Double(max(-2, min(2, effectiveDistance(for: i))) * 7) }  // cap at ±14°
+private func yOffset(for i: Int)  -> CGFloat  { abs(effectiveDistance(for: i)) * 18 }
+private func opacity(for i: Int)  -> Double   { max(0.0, 1.0 - 0.28 * abs(effectiveDistance(for: i))) }
+private func blur(for i: Int)     -> CGFloat  { min(4, abs(effectiveDistance(for: i)) * 2) }
+
+card
+    .scaleEffect(scale(for: i))
+    .rotationEffect(.degrees(rotation(for: i)))
+    .offset(x: CGFloat(i - selectedIndex) * xStep + dragOffset, y: yOffset(for: i))
+    .opacity(opacity(for: i))
+    .blur(radius: blur(for: i))
+    .zIndex(-abs(effectiveDistance(for: i)))   // closest to center draws on top
+```
+
+- **Divide `dragOffset` by card width, not a magic constant** — that normalizes the drag into "fractional cards moved," so neighbors visibly grow/shrink in real time as the finger moves, then settle the rest of the way once the spring takes over on release. Without this the fan only updates in a jump when the gesture ends.
+- **Cap rotation and clamp scale/opacity to a floor** (`max(-2, min(2, d))`, `max(0.82, …)`) — beyond ~2 cards away the linear formulas would flip cards past vertical or invert opacity; clamping keeps distant cards small, dim, and blurred instead of glitching.
+- **Blur-by-distance is a cheap depth-of-field** — 2–4pt of blur on off-center cards sells "depth" far more than scale/opacity alone, and is nearly free compared to real depth-of-field rendering.
+- Use `selectionChanged` haptic on index change (see velocity-aware paging above); the continuous transform is purely visual and doesn't change the haptic ladder.
+- **Asymmetric response is fine — and often more physical — when the two directions should feel different.** Nothing requires the distance-response curves to be symmetric: a stack of cards "already flipped past" vs. "still ahead" can use different degrees-per-step (e.g. ahead fans flatter, behind stands more upright), so the two sides of the deck read as physically distinct rather than a mirror image of each other. Branch the formula on the sign of the distance, not just its magnitude.
+
+### Selection-synced immersive backdrop
+
+For a "browse and the whole screen reacts" feel (movie posters, album art, product photos), cross-fade a **full-bleed blurred backdrop** behind the carousel that always matches the selected card:
+
+```swift
+GeometryReader { geo in
+    ZStack {
+        ForEach(items.indices, id: \.self) { i in
+            Image(items[i].imageName)
+                .resizable().scaledToFill()
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+                .opacity(i == selectedIndex ? 1 : 0)
+                .animation(.easeInOut(duration: 0.55), value: selectedIndex)
+        }
+    }
+    .blur(radius: 80, opaque: true)   // opaque: true — avoids edge transparency artifacts at high radius
+    .saturation(1.3)                  // blur flattens color; push saturation back up
+}
+```
+
+- **Stack all candidate images and cross-fade opacity — don't swap the `Image` view.** Swapping which image is in the tree restarts its load/layout and can't cross-fade; toggling `opacity` on views that are always present animates smoothly and is what makes `.easeInOut(duration: 0.55)` read as a dissolve.
+- **`.blur(radius:opaque:)` with `opaque: true`** is both faster and avoids the translucent-edge artifact that plain `.blur` produces at large radii on a full-bleed image.
+- **Apply `.blur`/`.saturation` once to the whole `ZStack`**, not per-image — one blur pass instead of N.
+- Overlay a top/bottom `LinearGradient` scrim (`black.opacity(0.55) → clear → black.opacity(0.70)`) so header and title text stay legible over any photo.
+- **Two ways to fade it out — scrim vs. mask, pick by what's underneath.** The scrim above (a translucent gradient laid *on top*) is right when there's readable content over the *whole* backdrop. When the backdrop should only occupy the **top** portion of the screen and hand off cleanly to a solid-color card below it, `.mask` the image itself with a `white → clear` gradient instead: `.mask(LinearGradient(stops: [.init(color: .white, location: 0), .init(color: .white, location: 0.18), .init(color: .clear, location: 0.42)], startPoint: .top, endPoint: .bottom))` over a plain `Color.black` behind it. A mask *reveals the layer behind it* (true transparency down to black), where a scrim only *dims* the image — use mask when you need a hard, clean handoff to a solid surface; use scrim when text needs to sit legibly on top of photo for the full extent.
+
+### Page indicator dots (variable-width)
+
+For a lightweight position indicator under a carousel/paging view (simpler than the Tab Bar sliding indicator, since there's no tab content to align to):
+
+```swift
+HStack(spacing: 7) {
+    ForEach(items.indices, id: \.self) { i in
+        Capsule()
+            .fill(.white.opacity(i == selectedIndex ? 0.95 : 0.3))
+            .frame(width: i == selectedIndex ? 22 : 7, height: 7)
+    }
+}
+.animation(.spring(response: 0.4, dampingFraction: 0.7), value: selectedIndex)
+```
+
+The active dot **stretching into a capsule** (22pt vs a 7pt circle) rather than just changing color/opacity is what makes it read as premium — a plain color-only dot indicator looks dated by comparison.
+
+### Detail text swap on selection (lightweight alternative to `.numericText`)
+
+When a carousel/list selection drives adjacent text (title, metadata) that isn't numeric, `.numericText` doesn't apply — use `.contentTransition(.opacity)` keyed to an `.id()` that changes with the selection instead of a custom transition:
+
+```swift
+Text(current.title)
+    .contentTransition(.opacity)
+    .id(current.id)                              // changing id forces the transition to fire
+    .animation(.easeInOut, value: current.id)     // implicit, or wrap the mutation in withAnimation
+```
+
+- **The `.id()` must change, not just the string** — `.contentTransition` fires on identity change of the underlying view, so keying it to a stable string that happens not to change between two items (e.g. two movies that coincidentally share a genre chip) silently skips the cross-fade. Key to the item's own `id`, or to `text + current.id` for a per-field key (e.g. reusable "chip" subviews showing different fields of the same item).
+
+---
+
+## Native-Physics Scroll Stacks (invisible `UIScrollView` driver)
+
+A `DragGesture`-driven stack (see Carousels & Paging above) always *approximates* momentum with a spring — it never quite matches real UIKit deceleration and rubber-banding. When a stack should feel like scrolling a native list (a stacked card/album deck that free-scrolls and decelerates like Music.app or Photos), drive it with a **real, invisible `UIScrollView`** instead, and let it push a plain `CGFloat` binding that a completely separate SwiftUI render stack reads to position its cards.
+
+```swift
+private struct ScrollDriver: UIViewRepresentable {
+    @Binding var scrollOffset: CGFloat   // expressed in "items", not points
+    let itemSpacing: CGFloat
+    let maxOffset: CGFloat
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let sv = UIScrollView()
+        sv.delegate = context.coordinator
+        sv.decelerationRate = .normal      // real momentum curve — not a spring
+        sv.backgroundColor = .clear
+        return sv
+    }
+    func updateUIView(_ sv: UIScrollView, context: Context) {
+        sv.contentSize = CGSize(width: sv.bounds.width, height: maxOffset * itemSpacing + sv.bounds.height)
+        guard !context.coordinator.isTracking, !context.coordinator.isDecelerating else { return }
+        let target = scrollOffset * itemSpacing
+        if abs(sv.contentOffset.y - target) > 0.5 {
+            sv.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+        }
+    }
+    // Coordinator (UIScrollViewDelegate): scrollViewDidScroll → scrollOffset = contentOffset.y / itemSpacing
+}
+// The rendered card stack sits ABOVE the driver in a ZStack with .allowsHitTesting(false) on the
+// stack — every touch lands on the invisible UIScrollView, which never draws any content of its own.
+```
+
+Non-obvious rules — each is a real trap:
+
+- **The scroll view renders nothing.** Its `contentSize` exists purely to define the scrollable *range* and produce real deceleration/rubber-band physics; the actual cards are a totally separate layer reading `scrollOffset` as a plain float. This split — UIKit computes "where," SwiftUI (or a SceneKit-embedded card) draws "what" — is the core idea, and it generalizes to any custom-rendered stack that wants native scroll feel.
+- **Gate every programmatic `setContentOffset` behind `!isTracking && !isDecelerating`.** Without this guard, the round-trip (driver → `@Binding` → `updateUIView` → `setContentOffset`) fights the user's own touch or native deceleration and stutters. Only force-sync the offset when the user isn't currently driving it themselves (e.g. an external "jump to index" call).
+- **Settle-tick haptic — round to nearest, diff against the last-fired index**, not a raw pixel threshold: `let crossed = Int(floor(offset + 0.5)); if crossed != lastHapticIndex { tick(); lastHapticIndex = crossed }`. Fires `selectionChanged` exactly once per item boundary crossed in either direction — more robust than a fixed pixel threshold since it's expressed in "items," not points, and works the same regardless of `itemSpacing`.
+- **Boundary/rubber-band haptic — fire once per overscroll excursion, not once per frame.** Gate with a `boundaryFired` flag set the first frame `contentOffset` passes either end, and reset it in `scrollViewWillBeginDragging` — otherwise a rigid impact fires on every `scrollViewDidScroll` tick while the user holds the view stretched past its limit (dozens of buzzes instead of one clean thud).
+- **Windowed rendering — cull cards far from the visible window.** With many expensive per-item views (SceneKit, Metal, video), don't render the whole stack: `if abs(scrollProgress) <= renderWindow { cardView }` inside the `ForEach`. SwiftUI simply never builds the view for culled items — essential for SceneKit specifically, since each instance owns a real `SCNView` and render pass.
+
 ---
 
 ## Stacked Cards (notification stack)
@@ -760,6 +951,55 @@ card.scaleEffect(scale).opacity(opacity).offset(y: yOffset).zIndex(Double(count 
 - **Swipe-to-dismiss (front only):** gate the `DragGesture` to `depth == 0`; rubber-band `dragOffset`, `lightImpact` on start, past ~120pt `removeFirst()` + `heavyImpact`, else spring back.
 - Each card `.transition(.asymmetric(insertion: .widthPop, removal: .move(edge: .top).combined(with: .opacity)))`.
 - **"Notification" card surface:** on iOS 26 use authentic Liquid Glass — `.glassEffect(.regular.tint((isDark ? .black : .white).opacity(0.28)), in: shape)`; fall back to `.ultraThinMaterial` + scheme-aware tint below (see Light Theme → Adaptive). 28pt continuous radius + soft shadow.
+
+---
+
+## Auto-Advancing Card Deck (swipe-or-timer, infinite wrap)
+
+A Tinder-style deck (movie/song/product-of-the-day, story cards) where the front card **either** gets swiped away by the user **or** auto-advances on a timer, wraps around infinitely, and the next card must rise to the front *immediately* — without waiting for the discarded card to finish falling off-screen.
+
+**Infinite wrap via modulo distance**, so `index` never needs bounds-checking:
+```swift
+private func slot(for i: Int) -> Int { (i - index + items.count) % items.count }   // 0 = front
+```
+
+**One `advance()` function, two callers.** Both the swipe gesture (past threshold) and a `.task` auto-advance timer call the same function — so the fall animation, haptic, and state mutation are defined once and can't drift apart between the manual and automatic paths:
+```swift
+.task {
+    while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(2.5))
+        if flying == nil { advance(fromDrag: 0) }   // don't double-fire if a swipe is already mid-flight
+    }
+}
+```
+
+**The critical trap — decouple the exiting card from the stack it's leaving.** If the discarded card stays inside the same `ForEach` that renders the stack, bumping `index` (which reshuffles every remaining card's depth/offset) and animating that card's removal fight over the same elements — you get a stutter or a visible glitch. Instead render the falling card as an **independent overlay**, outside the stack loop, with its own state:
+
+```swift
+@State private var flying: Item? = nil
+@State private var flyY: CGFloat = 0
+@State private var flyRot: Double = 0
+
+private func advance(fromDrag startY: CGFloat) {
+    flying = items[index]; flyY = startY; flyRot = tilt(for: startY)
+    withAnimation(.easeInOut(duration: 0.55)) { index = (index + 1) % items.count }   // stack reshuffles NOW, fast
+    withAnimation(.easeIn(duration: 0.85)) { flyY = 1100; flyRot = 6 }                 // discarded card keeps falling, slower
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.87) { flying = nil }
+}
+// in the stack ForEach: skip any card whose id == flying?.id
+// render the flying card separately: cardView(f).offset(y: flyY).rotationEffect(.degrees(flyRot)).zIndex(100)
+```
+
+- **Two different durations for two different things happening at once** — the stack's reshuffle (`0.55s`) is deliberately shorter than the card's fall (`0.85s`), so the next card is already settled into place while the discarded one is still visibly finishing its exit in the background. That's what makes it read as "the next one rose to the front," not "we waited for the old one to leave."
+- `index` mutates the instant `advance()` is called — the fall animation never blocks it.
+- **Progressive stepped stack offset** (tighter each level back) reads as a more physical, hand-stacked deck than a constant per-depth step:
+```swift
+private func stackOffset(_ depth: Int) -> CGFloat {
+    var y: CGFloat = 0, step: CGFloat = 18
+    for _ in 0..<depth { y += step; step = max(9, step - 3) }   // 18, 15, 12, 9, 9…
+    return -y
+}
+```
 
 ---
 
@@ -940,12 +1180,93 @@ Non-obvious rules — each one is a real trap:
 
 ---
 
+## SceneKit 3D Object Showcase
+
+For a **real 3D object** (an album cover, a book, a boxed product) that tilts/rotates in response to scroll or touch — not a fake `rotation3DEffect` pseudo-3D — embed an `SCNScene` via `UIViewRepresentable` and drive it from SwiftUI state.
+
+### Truly transparent SceneKit embed
+
+`SCNView` defaults to an **opaque white background** — invisible over a SwiftUI backdrop unless cleared in all four places:
+
+```swift
+scene.background.contents = nil        // the SCNScene itself
+view.isOpaque = false
+view.backgroundColor = .clear
+view.layer.isOpaque = false
+```
+Missing any one of these still shows a white (or black, post-clear-but-pre-layer) rectangle behind the object.
+
+### Drive node transforms from SwiftUI state without SceneKit's implicit animation fighting you
+
+SceneKit **implicitly animates** node property changes by default. If a tilt/rotation should track a continuously-driven value (scroll offset, drag), that implicit animation makes it lag behind and rubber-band against your own driver. Wrap every driven update in a transaction with actions disabled:
+
+```swift
+SCNTransaction.begin()
+SCNTransaction.disableActions = true
+node.eulerAngles = SCNVector3Make(tiltX * .pi / 180, tiltY * .pi / 180, 0)
+SCNTransaction.commit()
+```
+The value then updates **exactly** on your schedule (every `updateUIView`, every scroll tick) — SwiftUI/UIKit owns the animation curve, not SceneKit's own defaults.
+
+### Boxed-object recipe (6-face `SCNBox`, one face as a rendered label)
+
+An `SCNBox`'s six materials, in `SCNBox.materials` order (+Z front, -Z back, +X right, -X left, +Y top, -Y bottom), build a "sleeve" object with a real spine: front face = artwork, spine face = a **dynamically rendered `UIImage`** (title + subtitle drawn via Core Graphics onto a colored background), remaining faces = a solid edge color:
+
+```swift
+box.materials = [coverFront, edgeColor, coverRight, edgeColor, edgeColor, labelEdge]
+```
+- Image faces use `.lightingModel = .blinn` (should shade under the lights); solid-color faces use `.lightingModel = .constant` (flat — doesn't need lighting math, cheaper).
+- The spine label is a plain `UIGraphicsImageRenderer` draw — no SceneKit text API needed. Render it **once** (not per frame) and hand the resulting `UIImage` to `.diffuse.contents`.
+
+### Lighting/camera rig — reusable default for "object floating in space"
+
+One directional **key** light + one **ambient** fill is enough for a premium single-object showcase — no need for a full 3-point rig:
+```swift
+keyLight.type = .directional; keyLight.intensity = 900                                 // tune 700–1000
+keyLight.eulerAngles = SCNVector3Make(-40 * .pi/180, 25 * .pi/180, 0)                   // top-front-left
+ambientLight.type = .ambient; ambientLight.color = UIColor(white: 0.30, alpha: 1)       // fill so shadow side isn't pitch black
+camera.fieldOfView = 46; camera.position = SCNVector3Make(0, 0.3, 5.0)
+```
+
+### Dual-mode component: standalone vs. embedded
+
+The same object view should work both as a full-screen showcase (opaque black backdrop, full antialiasing) and as one of many repeated instances inside a scrolling stack (transparent, cheaper antialiasing since several render at once):
+```swift
+var embedded: Bool = false
+// standalone: ZStack { Color.black.ignoresSafeArea(); sceneView }
+// embedded:   sceneView alone, background stays .clear
+view.antialiasingMode = embedded ? .multisampling2X : .multisampling4X   // cheaper AA when many instances render together
+```
+
+**Verification trap:** a SceneKit view can compile and run while still showing a plain white/black rectangle if any transparency step above is skipped, or a flat gray box if a texture failed to load (`UIImage(named:)` returning `nil` fails silently). Screenshot-verify the actual object renders with correct art and lighting — don't just confirm the view exists in the hierarchy.
+
+---
+
+## Deriving Accent Colors from Artwork
+
+When a screen should tint itself (an object's spine face, a background scrim, a button accent) from the dominant color of an image rather than a hardcoded palette value, sample a **downscaled** copy and weight by saturation + brightness — not raw pixel frequency, which usually just picks whatever's most common (often a boring background gray or black):
+
+```swift
+let sampleSize = 40   // downscale first — sampling a full-res image per pixel is wasteful and noisy
+context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
+// per pixel: visibility = saturation * 0.7 + brightness * 0.3
+// bucket by quantized color, accumulate weight * (r,g,b), skip alpha < 0.5
+// winner = bucket with highest total weight; divide its accumulated color by its weight
+```
+
+- **Weight by saturation + brightness, not pixel count.** A plain "most frequent color" pass on a poster/cover usually returns the boring gray/black background fill. Weighting toward saturated, mid-brightness pixels finds the color a human would actually call "the color of this image."
+- **Reject near-white/near-black outliers explicitly** (skip pixels with `brightness` outside `0.08–0.95`) — otherwise a mostly-white or mostly-black image just returns white/black as its "dominant" color, which is true but useless as an accent.
+- **Darken a near-white winner** (`luminance > 0.85 → multiply channels by 0.75`) — even after weighting, a pastel-heavy image can still win with a color that reads as a blank white panel when filled as a solid background; scaling it down keeps it visibly a color rather than a void.
+- **Contrasting text color — use perceptual luminance, not a channel average:** `0.299·r + 0.587·g + 0.114·b > 0.55 → black text, else white`. Green reads brighter to the eye than red or blue at the same channel value, so a plain `(r+g+b)/3` average picks the wrong text color on saturated pure-blue or pure-green backgrounds.
+
+---
+
 ## Output (Create mode)
 
 Stream these progress lines one by one:
 
 ```
-⚙️  swiftui-microinteractions v1.15.0
+⚙️  swiftui-microinteractions v1.18.0
 🖼️  Assets: <found: name1, name2… · or · none found, using placeholders>
 🎯  Archetype: <archetype name>
 ⚡  Physics: <spring preset and why — one phrase>
